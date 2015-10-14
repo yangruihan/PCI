@@ -61,8 +61,30 @@ def schedule_cost(sol):
         total_price += out_bound[2]
         total_price += return_f[2]
 
+        # 记录最晚到达时间和最早离开时间
+        if latest_arrival < get_minutes(out_bound[1]):
+            latest_arrival = get_minutes(out_bound[1])
+        if earliest_dep > get_minutes(return_f[0]):
+            earliest_dep = get_minutes(return_f[0])
+
+        # 每个人必须在机场等待直到最后一个人到达为止
+        # 他们也必须在相同时间到达，并等候他们的返程航班
+        total_wait = 0
+        for d in range(len(sol) / 2):
+            origin = people[d][1]
+            out_bound = flights[(origin, destination)][int(sol[2 * d])]
+            return_f = flights[(destination, origin)][int(sol[2 * d + 1])]
+            total_wait += latest_arrival - get_minutes(out_bound[1])
+            total_wait += get_minutes(return_f[0]) - earliest_dep
+
+        # 这个题解要求多租一天车费吗，如果是，则加上费用
+        if latest_arrival < earliest_dep:
+            total_price += 50
+
+    return total_price + total_wait
 
 
 if __name__ == '__main__':
     s = [1, 4, 3, 2, 7, 3, 6, 3, 2, 4, 5, 3]
     print_schedule(s)
+    print schedule_cost(s)

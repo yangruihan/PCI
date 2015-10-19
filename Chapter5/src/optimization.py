@@ -86,15 +86,15 @@ def schedule_cost(sol):
 
 # 随机搜索
 # domain 是一个二元元组，它指定了每个变量的最大值和最小值
-# costf 是成本函数，本例中 即 schedule_cost
-def random_optimize(domain, costf):
+# cost_f 是成本函数，本例中 即 schedule_cost
+def random_optimize(do_main, costf):
     best = 999999999
     best_r = None
     # 随机产生1000次猜测，并对每一次猜测调用成本函数
     for i in range(1000):
         # 创建一个随机解
-        r = [random.randint(domain[i][0], domain[i][1])
-                for i in range(len(domain))]
+        r = [random.randint(do_main[i][0], do_main[i][1])
+             for i in range(len(do_main))]
 
         # 得到成本
         cost = costf(r)
@@ -103,14 +103,15 @@ def random_optimize(domain, costf):
         if cost < best:
             best = cost
             best_r = r
-    return r
+    return best_r
 
 
 # 爬山法
-def hill_climb(domain, costf):
+def hill_climb(do_main, cost_f):
     # 创建一个随机解
-    sol = [random.randint(domain[i][0], domain[i][1])
-            for i in range(len(domain))]
+    sol = []
+    for i in range(len(do_main)):
+        sol.append(random.randint(do_main[i][0], do_main[i][1]))
 
     # 主循环
     while 1:
@@ -118,20 +119,20 @@ def hill_climb(domain, costf):
         # 创建相邻解的列表
         neighbors = []
 
-        for j in range(len(domain)):
+        for j in range(len(do_main)):
 
             # 在每个方向上相对于原值偏离一点
-            if sol[j] > domain[j][0]:
-                neighbors.append(sol[0:j] + [sol[j] - 1] + sol[j+1:])
+            if sol[j] > do_main[j][0]:
+                neighbors.append(sol[0:j] + [sol[j] - 1] + sol[j + 1:])
 
-            if sol[j] < domain[j][1]:
-                neighbors.append(sol[0:j] + [sol[j] + 1] + sol[j+1:])
+            if sol[j] < do_main[j][1]:
+                neighbors.append(sol[0:j] + [sol[j] + 1] + sol[j + 1:])
 
         # 在相邻解种寻找最优解
-        current = costf(sol)
+        current = cost_f(sol)
         best = current
         for j in range(len(neighbors)):
-            cost = costf(neighbors[j])
+            cost = cost_f(neighbors[j])
             if cost < best:
                 best = cost
                 sol = neighbors[j]
@@ -144,14 +145,14 @@ def hill_climb(domain, costf):
 
 
 # 退火法
-def annealing_optimize(domain, costf, T=10000.0, cool=0.95, step=1):
+def annealing_optimize(do_main, cost_f, t=10000.0, cool=0.95, step=1):
     # 随机初始化值
-    vec = [float(random.randint(domain[i][0], domain[i][1]))
-            for i in range(len(domain))]
+    vec = [float(random.randint(do_main[i][0], do_main[i][1]))
+           for i in range(len(do_main))]
 
-    while T > 0.1:
+    while t > 0.1:
         # 选择一个索引值
-        i = random.randint(0, len(domain) - 1)
+        i = random.randint(0, len(do_main) - 1)
 
         # 选择一个改变索引值的方向
         dir = random.randint(-step, step)
@@ -159,23 +160,81 @@ def annealing_optimize(domain, costf, T=10000.0, cool=0.95, step=1):
         # 创建一个代表题解的新列表，改变其中一个值
         vec_b = vec[:]
         vec_b[i] += dir
-        if vec_b[i] < domain[i][0]:
-            vec_b[i] = domain[i][0]
-        elif vec_b[i] > domain[i][1]:
-            vec_b[i] = domain[i][1]
+        if vec_b[i] < do_main[i][0]:
+            vec_b[i] = do_main[i][0]
+        elif vec_b[i] > do_main[i][1]:
+            vec_b[i] = do_main[i][1]
 
         # 计算当前成本和新的成本
-        ea = costf(vec)
-        eb = costf(vec_b)
+        ea = cost_f(vec)
+        eb = cost_f(vec_b)
 
         # 判断是否为更优解，或者时趋向最优解的可能临界解
-        if (eb < ea or random.random() < pow(math.e, -(eb - ea) / T)):
+        if eb < ea or random.random() < pow(math.e, -(eb - ea) / t):
             vec = vec_b
 
         # 降低温度
-        T = T * cool
+        t *= cool
 
     return vec
+
+
+# 遗传算法
+# 参数：
+#       pop_size    种群大小
+#       mut_prob    种群的新成员是由变异而非交叉得来的概率
+#       elite       种群中被认为是优解且被允许传入下一代的部分
+#       max_iter    须运行多少代
+def genetic_optimize(do_main, cost_f, pop_size=50, step=1, mut_prob=0.2, elite=0.2, max_iter=100):
+    # 变异操作
+    def mutate(vec):
+        i = random.randint(0, len(do_main) - 1)
+        if random.random() < 0.5 and vec[i] > do_main[i][0]:
+            return vec[0:i] + [vec[i] - step] + vec[i + 1:]
+        elif vec[i] < do_main[i][1]:
+            return vec[0:i] + [vec[i] + step] + vec[i + 1:]
+
+    # 交叉操作
+    def crossover(r1, r2):
+        # 因为两个数组进行交叉，每一个数组最少要拿出一个元素，因此这里的上界是len(do_main)-2
+        i = random.randint(1, len(do_main) - 2)
+        return r1[0:i] + r2[i:]
+
+    # 构造初始种群
+    pop = []
+    for i in range(pop_size):
+        vec = [random.randint(do_main[i][0], do_main[i][1]) for i in range(len(do_main))]
+        pop.append(vec)
+
+    # 每一代中有多少胜出者
+    top_elite = int(elite * pop_size)
+
+    # 主循环
+    for i in range(max_iter):
+        scores = [(cost_f(v), v) for v in pop]
+        # 对得分进行排序
+        scores.sort()
+        ranked = [v for (_, v) in scores]
+
+        # 从纯粹的胜出者开始
+        pop = ranked[0:top_elite]
+
+        # 添加变异和配对后的胜出者
+        while len(pop) < pop_size:
+            if random.random() < mut_prob:
+                # 变异
+                c = random.randint(0, top_elite)
+                pop.append(mutate(ranked[c]))
+            else:
+                # 交叉
+                c1 = random.randint(0, top_elite)
+                c2 = random.randint(0, top_elite)
+                pop.append(crossover(ranked[c1], ranked[c2]))
+
+        # 打印当前最优质
+        # print scores[0][0]
+
+    return scores[0][1]
 
 
 if __name__ == '__main__':
@@ -204,3 +263,11 @@ if __name__ == '__main__':
     print time.time() - t1
     print schedule_cost(s)
     print_schedule([int(x) for x in s])
+
+    print '----------genetic_optimize----------'
+
+    t1 = time.time()
+    s = genetic_optimize(domain, schedule_cost)
+    print time.time() - t1
+    print schedule_cost(s)
+    print_schedule(s)

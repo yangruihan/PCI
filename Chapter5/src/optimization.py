@@ -87,7 +87,7 @@ def schedule_cost(sol):
 # 随机搜索
 # domain 是一个二元元组，它指定了每个变量的最大值和最小值
 # cost_f 是成本函数，本例中 即 schedule_cost
-def random_optimize(do_main, costf):
+def random_optimize(do_main, cost_f):
     best = 999999999
     best_r = None
     # 随机产生1000次猜测，并对每一次猜测调用成本函数
@@ -97,7 +97,7 @@ def random_optimize(do_main, costf):
              for i in range(len(do_main))]
 
         # 得到成本
-        cost = costf(r)
+        cost = cost_f(r)
 
         # 与到目前为止的最优解进行比较
         if cost < best:
@@ -204,14 +204,18 @@ def genetic_optimize(do_main, cost_f, pop_size=50, step=1, mut_prob=0.2, elite=0
     pop = []
     for i in range(pop_size):
         vec = [random.randint(do_main[i][0], do_main[i][1]) for i in range(len(do_main))]
-        pop.append(vec)
+        pop += [vec]
 
     # 每一代中有多少胜出者
     top_elite = int(elite * pop_size)
 
     # 主循环
     for i in range(max_iter):
-        scores = [(cost_f(v), v) for v in pop]
+        scores = []
+        for v in pop:
+            if v is None:
+                continue
+            scores.append((cost_f(v), v))
         # 对得分进行排序
         scores.sort()
         ranked = [v for (_, v) in scores]
